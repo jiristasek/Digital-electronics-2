@@ -1,0 +1,14 @@
+
+Module      Operation       Register(s)     Bits
+
+            Prescaler       TCCT0B          CS02
+
+
+Timer/      Prescaler       TCCR1B          CS12, CS11, CS10
+Counter1    Owerflow i.     TIMSK1          TOIE1
+            DATA v.         TCNT1H,TCNT1L   TCNT1H[7:0], TCNT1L[7:0]
+
+
+Timer/      Prescaler       TCCR2B          CS22, CS21, CS20
+Counter2    Owerflow i.     TIMSK2          TOIE2
+            DATA v.         TCNT2H,TCNT2L   TCNT2H[7:0], TCNT2L[7:0]
