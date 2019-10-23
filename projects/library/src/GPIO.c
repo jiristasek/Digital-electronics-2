@@ -3,6 +3,7 @@
 /*  Functions  ---------------------------------------------------------*/
 void  GPIO_config_output(volatile  uint8_t *reg_name , uint8_t  pin_num)
 {   
+    DDR(*reg_name) |= _BV(pin_num); 
     *reg_name |= _BV(pin_num);
 }
 
