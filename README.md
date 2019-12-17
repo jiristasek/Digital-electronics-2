@@ -1,91 +1,90 @@
-﻿
+# Digital-Electronics-2 
+## Radim Dvořák 186800 & Jiří Šťásek 195447 
+
 [![university](https://img.shields.io/badge/university-Brno%20University%20of%20Technology-red.svg)](https://www.vutbr.cz/en/)
 [![faculty](https://img.shields.io/badge/faculty-Faculty%20of%20Electrical%20Engineering%20and%20Communication-blue.svg)](https://www.fekt.vutbr.cz/)
 
 
-# AVR Template
+# Semestrální projekt
+#### Radim Dvořák 186800 & Jiří Šťásek 195447
+##### Pozn. Kód byl psán v programu ATMEL Studio 7.0. Může proto být nutné upravení souboru Makefile tak, aby vyhovoval Vám.
+## Zadání projektu
+Parkovací senzory s využitím Multi function shieldu a ultrazvukového(ých) senzoru(ů) HC-SR04. Frekvence pípání podle vzdálenosti, zobrazení vzdálenosti na 7segmentovém displeji v centimetrech, indikace vzdálenosti na LED (daleko žádná, blízko všechny LED, apod.). Uvažovat nastavení limitů vzdálenosti pomoci interaktivní konzole přes UART.
 
-#### Table of Contents
+## Použité součástky
+| **Součástka** | **Popis** |
+| ------------- | --------- |
+| ATMEGA328P | Arduino Nano 
+| 3x 8bitový posuvný registr | 74HC595N 
+| 1x 4 Sedmisegmentový display | Common Cathode 
+| Bzučák | 
+| Senzor vzdálenosti | HC-SR04 
+| 8x LED | 3x zelená, 3x žlutá, 2x červená 
+| Tranzistor MOSFET | N-MOS IRF740 TO-220
+| Propojky | Různé velikosti a barvy 
 
-1. [Introduction](#introduction)
-2. [Hardware Components](#hardware-components)
-3. [How to Use AVR Template on Linux](docs/HOWTO_linux.md)
-4. [How to Use AVR Template on Windows](docs/HOWTO_windows.md)
-5. [How to Use AVR Template on Mac OS X](docs/HOWTO_mac.md)
-6. [References](#references)
+## Schéma zapojení
 
+![Zapojení](https://i.imgur.com/NpZPkXZ.jpg)
 
-## Introduction
+## Realizace
+### Hardware : 
+Pro komunikaci se senzorem využíváme 2 piny portu B.
 
-The repository contains AVR template for bachelor course *Digital Electronics 2* ([Winter 2019/2020](https://www.vutbr.cz/en/students/courses/detail/210896)) at Brno University of Technology, Czechia. The repository has the following hierarchy:
+| **Pin senzoru** | **Pin mikrokontroléru** | **Pin na desce (Arduinu)** |
+| --------------- | ----------------------- | -------------------------- |
+| Trigger | PORTB1 | D9
+| Echo | PORTB0 | D8
 
+Pro aktivování senzoru je nutné přivést na Trigger pin 10 mikrosekundový pulz. Senzor potom odpovídá na pinu Echo zvednutím napěťové úrovně do logické úrovně HIGH, kterou poté udržuje po dobu odpovídající vzdálenosti, kterou změřil. Změříme-li tuto dobu, můžeme vzdálenost vypočítat podle stanovené rovnice v datasheetu senzoru.
+Doporučená hranice pro buzení senzoru je dle datasheetu minimálně 60 mikrosekund.
+
+V našem projektu jsme využili 3 posuvné registry pro adresaci sedmisegmentových displejů a také na ovládání indikačních LED diod.
+Pro komunikaci s posuvnými registry využíváme port D
+
+| **Pin registru** | **Pin mikrokontroléru** | **Pin na desce (Arduinu)** |
+| ---------------- | ------------------------| -------------------------- |
+| Data Pin | PORTD4 | D4
+| Clock Pin | PORTD5 | D5
+| Latch Pin | PORTD6 | D6
+
+První posuvný registr je spojený s vývody displeje pro výběr displeje, druhý posuvný registr je připojen k jednotlivým segmentům displeje. Třetí registr ovládá osmici LED diod viditelně připojených na jeho výstupy.
+
+Pro generaci signálu pro zvukovou indikaci využijeme pin D11, což je pin na jehož výstupu je připojen výstup vnitřního časovače OC2A.
+
+### Software:
+
+#### Rozvržení programu
+
+| **Blok** | **Popis funkce** |
+| -------- | ---------------- |
+| Hlavní smyčka | Obsluha uživatelského prosředí pomocí UART 
+| Timer/Counter 0 | Kontrolní jednotka. Kontroluje spínání senzoru, aktualizace displeje a LED diod. Časuje zvukové projevy zařízení
+| Timer/Counter 1 | Využit jako počítadlo času pro určení vzdálenosti.
+| Timer/Counter 2 | Generace signálu pro buzzer
+| Pin Change Interrupt 0 | Na základě změny hladiny signálu řídí průběh měření vzdálenosti
+
+##### Rozhraní UART
+
+Ve hlavní smyčce bude probíhat komunikace s uživatelem přes rozhraní UART. Uživatel má následující možnosti: 
+  1) Změnit nastavení minimální a maximální vzdálenosti, kdy zařízení zvukově a vizuelně (LED diody) upozorňuje uživatele na vzdálenost překážky.
+  2) Změnit rychlost buzení senzoru v milisekundách. Minimálně však 60 ms
+  3) Změnit frekvenci časovače OC2A a tím pádem změnit tón buzzeru na přednastavené hodnoty.
+  4) Vypnout zvukovou signalizaci
+  
+Při každé změně hodnoty je tato hodnota uložena do vnitřní paměti (EEPROM) mikrokontroléru, takže nastavení je přeneseno i po odpojení napájecího zdroje.
+
+##### Kontrolní jednotka
+
+Časovač je nastaven do CTC módu (Clear Timer on Compare) na hodnotu 1 ms. Tento interrupt se pouští každou milisekundu a je rozdělen do bloků dle funkce.
+  1) Blok pro aktualizaci displeje. Kontroluje, počet přerušení tak, aby byla hodnota zobrazovaného displeje inkrementována po 4 ms. Spouští odesílání dat do posuvných registrů.
+  2) Blok pro spuštění měření. Při každém přerušení kontroluje aktuální časovou hodnotu od posledního spuštění. Pokud je hodnota vyšší nebo rovná, spouští další měření.
+  3) Kontrola časování zvukových projevů zařízení. V závislosti na vzdálenosti spouští a zastavuje a spouští bzučení.
+  
+##### Měřící systém
+
+Po vyslání budícího signálu je Echo pin vytažen do úrovně HIGH senzorem, což způsobí přerušení. V tomto přerušení spouštíme měření času. Doba, po jakou je signál na úrovni HIGH je přímo odvozená ze vzdálenosti. Když senzor opět stáhne pin na úroveň LOW, vyvolá to další přerušení, ve kterém zastavíme měření a vypočítáme vzdálenost podle vzorce.
 ```bash
-avr-template$ tree
-.
-├── docs
-│   └── hw
-├── LICENSE
-├── projects
-│   ├── 01-demo
-│   │   ├── main.c
-│   │   ├── Makefile
-│   │   └── README.md
-│   ├── 09-asm_random
-│   │   └── rand.S
-│   ├── library
-│   │   ├── inc
-│   │   └── src
-│   └── projects.in
-└── README.md
+Formula: uS / 58 = centimeters
 ```
-
-In folder `docs` all manuals are stored. Folder `hw` contains KiCad schematic of Arduino shields used in the course. All projects are located within `projects` folder. The `01-demo` example contains default C-code source file `main.c`, `README.md`, and `Makefile`. Default example of ASM source file `rand.S` is located in the `09-asm_random` folder. Source and header files of LCD, TWI, and UART libraries are located in the `library` folder.
-
-
-## Hardware Components
-
-The following hardware components are mainly used in the lab.
-
-| **Component** | **Description** | **Manual** |
-| ------------- | --------------- | ---------- |
-| [ATmega328P](https://www.microchip.com/wwwproducts/en/ATmega328P) | 8-bit microcontroller | [Instruction set](https://www.microchip.com/webdoc/avrassembler/avrassembler.wb_instruction_list.html)
-| [Arduino Uno board](https://arduino-shop.cz/arduino/1353-klon-arduino-uno-r3-atmega328p-ch340-mini-usb-1466635561.html) | Low-cost clone of Arduino UNO R3 CH340 mini USB | [Schematic](docs/hw/arduino_shield.pdf)
-| [Breadboard](https://www.gme.cz/nepajive-kontaktni-pole-zy-60) | 300-pin breadboard |
-| [Male-male wires](https://arduino-shop.cz/arduino/1063-arduino-vodice-samec-samec-40-kusu-1500635966.html) | Wires for interconnections |
-| [Logic analyzer](https://www.ebay.com/sch/i.html?LH_CAds=&_ex_kw=&_fpos=&_fspt=1&_mPrRngCbx=1&_nkw=24mhz%20logic%20analyzer&_sacat=&_sadis=&_sop=12&_udhi=&_udlo=) | 24MHz 8-channel logic analyzer | [Software](https://www.saleae.com/)
-| [Multi-function shield](https://www.gme.cz/experiment-shield-pro-arduino) | Multi-function shield with four LEDs, three push buttons, four seven-segment displays, and others | [Schematic](docs/hw/arduino_shield.pdf)
-| [Arduino LCD Shield](https://arduino-shop.cz/en/arduino-platform/899-arduino-lcd-shield-1420670167.html) | LCD and keypad shield with LCD and five push buttons | [Schematic](docs/hw/arduino_shield.pdf)
-| [DHT12](https://arduino-shop.cz/arduino/1977-i2c-teplomer-a-vlhkomer-dht12-digitalni.html) | I2C humidity and temperature sensor | [Data sheet](docs/dht12_manual.pdf)
-| [DS3231](https://arduino-shop.cz/hledani.php?q=DS3231&n_q=) | I2C real time clock | [Data sheet](docs/ds3231_manual.pdf)
-| [ESP8266](https://arduino-shop.cz/arduino/911-internet-veci-je-tady-tcp-ip-wifi-esp8266-1420990568.html) | Wi-Fi module | [AT commands](docs/esp8266_at_instruction_set.pdf)
-| tbd | tbd | tbd
-
-
-## References
-
-1. [Git, free and open source distributed version control system](https://git-scm.com/)
-2. [GNU Make tool for Linux](https://www.gnu.org/software/make/)
-3. [Minimalist GNU for Windows](http://www.mingw.org/wiki/Getting_Started/)
-4. [AVRDUDE, software for programming Atmel AVR Microcontrollers](http://savannah.nongnu.org/projects/avrdude/)
-5. Microchip, [AVR 8-bit Toolchain for Windows, Linux, Mac OS X](https://www.microchip.com/mplab/avr-support/avr-and-arm-toolchains-c-compilers)
-6. [Atom text editor](https://atom.io/)
-7. [Doxygen, a standard tool for generating documentation from annotated source files](http://doxygen.nl/)
-8. [Graphviz, open source graph visualization software](http://graphviz.org/)
-9. Peter Fleury, [AVR-GCC libraries](http://homepage.hispeed.ch/peterfleury/avr-software.html)
-10. Wykys, [Tools for development of AVR microcontrollers](https://github.com/wykys/AVR-tools)
-
-
-## Tested on Operating Systems
-
-**Name**   | **Version**                | **Result**      | **Note**
----------- | -------------------------- | --------------- | --------
-Linux Mint | 18.3, Sylvia               | OK (2019-06-13) | Laptop
-Windows    | Windows 7                  | OK (2019-05-17) | Lab
-Linux Mint | 18.2, Sonya                | OK (2019-05-17) | Lab
-Ubuntu     | 18.04.1 LTS, Bionic Beaver | OK (2019-05-15) | Office
-Ubuntu     | 16.04, Xenial Xerus        | OK (2018-09-15) | Office
-
-```bash
-# FYI: How to check OS version in Linux
-cat /etc/os-release
-```
+Tento proces se neustále opakuje.
