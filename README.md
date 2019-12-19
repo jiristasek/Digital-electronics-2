@@ -83,8 +83,16 @@ Při každé změně hodnoty je tato hodnota uložena do vnitřní paměti (EEPR
   
 ##### Měřící systém
 
-Po vyslání budícího signálu je Echo pin vytažen do úrovně HIGH senzorem, což způsobí přerušení. V tomto přerušení spouštíme měření času. Doba, po jakou je signál na úrovni HIGH je přímo odvozená ze vzdálenosti. Když senzor opět stáhne pin na úroveň LOW, vyvolá to další přerušení, ve kterém zastavíme měření a vypočítáme vzdálenost podle vzorce.
+
+Využívá stavpvého automatu. Po vyslání budícího signálu je Echo pin vytažen do úrovně HIGH senzorem, což způsobí přerušení. V tomto přerušení spouštíme měření času. Doba, po jakou je signál na úrovni HIGH je přímo odvozená ze vzdálenosti. Když senzor opět stáhne pin na úroveň LOW, vyvolá to další přerušení, ve kterém zastavíme měření a vypočítáme vzdálenost podle vzorce.
 ```bash
 Formula: uS / 58 = centimeters
 ```
 Tento proces se neustále opakuje.
+
+## Obrázky zařízení
+
+![Zapojení](https://i.imgur.com/RyWCjG5.jpg)
+![Rozhraní UART](https://i.imgur.com/8rBqZgJ.png)
+
+https://cdn.sparkfun.com/datasheets/Sensors/Proximity/HCSR04.pdf
